@@ -5,6 +5,7 @@ import 'login_screen.dart';
 import 'logs_screen.dart';
 import 'otp_verification_screen.dart';
 import '../widgets/server_settings_dialog.dart';
+import '../utils/validators.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -192,9 +193,38 @@ class _SignupScreenState extends State<SignupScreen> {
     final confirmPass = _confirmPassController.text.trim();
     final dob = _dobController.text.trim();
 
-    if (name.isEmpty || mblNo.isEmpty || email.isEmpty || pass.isEmpty) {
+    if (name.isEmpty ||
+        mblNo.isEmpty ||
+        email.isEmpty ||
+        pass.isEmpty ||
+        confirmPass.isEmpty ||
+        dob.isEmpty) {
       setState(() {
-        _errorMessage = 'Please fill all required fields';
+        _errorMessage = 'Please fill all the fields';
+      });
+      return;
+    }
+
+    final phoneErr = Validators.validatePhone(mblNo);
+    if (phoneErr != null) {
+      setState(() {
+        _errorMessage = phoneErr;
+      });
+      return;
+    }
+
+    final emailErr = Validators.validateEmail(email);
+    if (emailErr != null) {
+      setState(() {
+        _errorMessage = emailErr;
+      });
+      return;
+    }
+
+    final passErr = Validators.validatePassword(pass);
+    if (passErr != null) {
+      setState(() {
+        _errorMessage = passErr;
       });
       return;
     }
@@ -265,7 +295,7 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
       bottomNavigationBar: const SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+          padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0),
           child: Text(
             'By signing up, you agree to our Terms of Service & Privacy Policy.',
             textAlign: TextAlign.center,
@@ -475,7 +505,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         ),
                       ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 0),
               TextButton(
                 onPressed: () {
                   if (Navigator.canPop(context)) {
@@ -506,7 +536,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
               ),
               if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 0),
                 Container(
                   width: double.infinity,
                   padding:

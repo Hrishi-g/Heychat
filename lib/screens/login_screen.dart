@@ -5,6 +5,7 @@ import 'logs_screen.dart';
 import 'otp_verification_screen.dart';
 import 'signup_screen.dart';
 import '../widgets/server_settings_dialog.dart';
+import '../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,7 +30,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (mblNo.isEmpty || pass.isEmpty) {
       setState(() {
-        _errorMessage = 'Please enter mobile number and password';
+        _errorMessage = 'Please fill all the fields';
+      });
+      return;
+    }
+
+    final String? inputError = mblNo.contains('@')
+        ? Validators.validateEmail(mblNo)
+        : Validators.validatePhone(mblNo);
+
+    if (inputError != null) {
+      setState(() {
+        _errorMessage = inputError;
+      });
+      return;
+    }
+
+    final passError = Validators.validatePassword(pass);
+    if (passError != null) {
+      setState(() {
+        _errorMessage = passError;
       });
       return;
     }

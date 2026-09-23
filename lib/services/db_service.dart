@@ -26,18 +26,33 @@ class DatabaseService {
         _database = null;
       }
     }
-    _database = await _initDB('whatsapp_encrypted.db');
+    _database = await _initDB('heychat_encrypted.db');
     return _database!;
   }
 
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final encryptedPath = join(dbPath, filePath);
+    final legacyWhatsappEncryptedPath = join(dbPath, 'whatsapp_encrypted.db');
     final legacyPath = join(dbPath, 'whatsapp_local.db');
 
     // Retrieve or generate 256-bit AES encryption master key from Keystore/Keychain
     final dbPassword =
         await SecureStorageService.instance.getOrCreateDatabaseKey();
+
+    // Migrate from legacy whatsapp_encrypted.db if present
+    if (await File(legacyWhatsappEncryptedPath).exists() &&
+        !await File(encryptedPath).exists()) {
+      try {
+        await File(legacyWhatsappEncryptedPath).rename(encryptedPath);
+        LogService.info(
+            'DatabaseService: Successfully renamed legacy whatsapp_encrypted.db to heychat_encrypted.db');
+      } catch (e) {
+        LogService.error(
+            'DatabaseService: Failed to rename legacy whatsapp_encrypted.db',
+            e);
+      }
+    }
 
     // Check if legacy unencrypted database exists and migrate records
     if (await File(legacyPath).exists() &&
@@ -360,5 +375,17 @@ class DatabaseService {
       await _database!.close();
       _database = null;
     }
+  }
+
+  // Return the absolute filesystem path to local SQLite database file
+  Future<String> getDatabaseFilePath() async {
+    final dbPath = await getDatabasesPath();
+    return join(dbPath, 'heychat_encrypted.db');
+  }
+
+  // Force close and reload database instance (used after cloud restore)
+  Future<Database> reloadDatabase() async {
+    await close();
+    return await database;
   }
 }

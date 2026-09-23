@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +9,7 @@ import '../providers/chat_provider.dart';
 import '../services/auth_service.dart';
 import '../services/avatar_cache_service.dart';
 import '../widgets/cached_avatar.dart';
+import '../widgets/chat_backup_card.dart';
 import 'chat_detail_screen.dart';
 import 'full_screen_image_screen.dart';
 
@@ -862,9 +862,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     },
                   ),
                 ),
+                const SizedBox(height: 20),
+
+                // 4. Cloud Backup & Restore Section
+                const ChatBackupCard(),
                 const SizedBox(height: 24),
 
-                // 4. Save Button
+                // 5. Save Button
                 SizedBox(
                   width: double.infinity,
                   height: 48,

@@ -6,26 +6,45 @@ import '../config/app_config.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 import '../widgets/server_settings_dialog.dart';
-import 'home_screen.dart';
 import 'login_screen.dart';
 import 'logs_screen.dart';
+import 'restore_backup_screen.dart';
 
 String extractErrorMessage(String body) {
   if (body.trim().isEmpty) return 'An error occurred. Please try again.';
   try {
     final decoded = jsonDecode(body);
     if (decoded is Map<String, dynamic>) {
-      if (decoded['message'] != null &&
-          decoded['message'].toString().trim().isNotEmpty) {
-        return decoded['message'].toString().trim();
+      final msg = decoded['message']?.toString().trim();
+      if (msg != null && msg.isNotEmpty) {
+        final lower = msg.toLowerCase();
+        if (lower == 'unauthorized' ||
+            lower == 'bad credentials' ||
+            lower.contains('unauthorized')) {
+          return 'Invalid credentials. Please check your phone number and password.';
+        }
+        return msg;
       }
-      if (decoded['error'] != null &&
-          decoded['error'].toString().trim().isNotEmpty) {
-        return decoded['error'].toString().trim();
+      final err = decoded['error']?.toString().trim();
+      if (err != null && err.isNotEmpty) {
+        final lower = err.toLowerCase();
+        if (lower == 'unauthorized' ||
+            lower == 'bad credentials' ||
+            lower.contains('unauthorized')) {
+          return 'Invalid credentials. Please check your phone number and password.';
+        }
+        return err;
       }
     }
   } catch (_) {}
-  return body.trim();
+  final raw = body.trim();
+  final lower = raw.toLowerCase();
+  if (lower == 'unauthorized' ||
+      lower == 'bad credentials' ||
+      lower.contains('unauthorized')) {
+    return 'Invalid credentials. Please check your phone number and password.';
+  }
+  return raw;
 }
 
 class OtpSession {
@@ -189,7 +208,9 @@ class OtpVerificationScreen extends StatelessWidget {
             if (!context.mounted) return;
             Navigator.pushAndRemoveUntil(
               context,
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
+              MaterialPageRoute(
+                builder: (_) => RestoreBackupScreen(phone: session.phone),
+              ),
               (route) => false,
             );
           },

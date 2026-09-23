@@ -20,9 +20,7 @@ class SecureStorageService {
   SecureStorageService._init() {
     // Configure hardware-backed encryption with standard key store for maximum device compatibility
     _storage = const FlutterSecureStorage(
-      aOptions: AndroidOptions(
-        encryptedSharedPreferences: false,
-      ),
+      aOptions: AndroidOptions(),
       iOptions: IOSOptions(
         accessibility: KeychainAccessibility.first_unlock,
       ),
