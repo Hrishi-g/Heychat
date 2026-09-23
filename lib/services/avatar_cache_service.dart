@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:sqflite_sqlcipher/sqflite.dart';

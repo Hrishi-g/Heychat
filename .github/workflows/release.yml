@@ -1,0 +1,57 @@
+name: Build and Release Flutter App
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on semantic version tags like v1.0.0, v1.0.1
+
+permissions:
+  contents: write # Required to create releases and upload assets
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Restore .env file from Secrets
+        run: |
+          echo "${{ secrets.DOTENV_FILE }}" > .env
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Optional: Runs code generation if you use packages like build_runner or flutter_dotenv
+      # - name: Run Build Runner
+      #   run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Rename APK for release
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk app-release-${{ github.ref_name }}.apk
+
+      - name: Create GitHub Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app-release-${{ github.ref_name }}.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

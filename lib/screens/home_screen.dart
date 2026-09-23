@@ -1484,7 +1484,6 @@ class _BouncyEffect extends StatefulWidget {
   final double pressedScale;
 
   const _BouncyEffect({
-    super.key,
     required this.child,
     this.onTap,
     this.pressedScale = 0.90,

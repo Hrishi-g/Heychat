@@ -762,7 +762,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       // Gender Dropdown
                       DropdownButtonFormField<String>(
-                        value: _normalizeGender(_selectedGender),
+                        initialValue: _normalizeGender(_selectedGender),
                         decoration: InputDecoration(
                           labelText: 'Gender',
                           prefixIcon:

@@ -1516,8 +1516,7 @@ class _BouncyScaleButton extends StatefulWidget {
   const _BouncyScaleButton({
     required this.child,
     this.onTap,
-    this.pressedScale = 0.88,
-  });
+  }) : pressedScale = 0.88;
 
   @override
   State<_BouncyScaleButton> createState() => _BouncyScaleButtonState();

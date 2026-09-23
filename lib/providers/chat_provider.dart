@@ -7,7 +7,6 @@ import '../services/auth_service.dart';
 import '../services/avatar_cache_service.dart';
 import '../services/db_service.dart';
 import '../services/websocket_service.dart';
-import '../utils/dummy_data.dart';
 
 class ChatProvider extends ChangeNotifier {
   final WebSocketService _wsService = WebSocketService();

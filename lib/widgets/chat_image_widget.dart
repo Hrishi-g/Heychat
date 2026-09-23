@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../config/app_config.dart';
 import '../models/message_model.dart';
 import '../screens/full_screen_image_screen.dart';
 import '../services/avatar_cache_service.dart';
