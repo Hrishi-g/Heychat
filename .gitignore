@@ -1,0 +1,56 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+ephemeral/
+.pub-cache/
+.pub/
+.widget_preview/
+
+# Environment and Secrets (Critical)
+.env
+.env.*
+*.jks
+*.keystore
+key.properties
+
+# Androidgit
+android/**/gradle-wrapper.jar
+android/.gradle
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/local.properties
+android/**/GeneratedPluginRegistrant.java
+
+# iOS / macOS
+ios/.symlinks/
+ios/Pods/
+ios/Podfile.lock
+ios/.pdm-build/
+Pods/
+*.mode1v3
+*.mode2v3
+*.moved-aside
+*.pbxuser
+*.perspectivev3
+xcuserdata/
+DerivedData/
+build/
+
+# Web
+.web/
+
+# Symbols & Obfuscation Output
+build/debug-info/
+
+# IDE / Editor Files
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+Thumbs.db
