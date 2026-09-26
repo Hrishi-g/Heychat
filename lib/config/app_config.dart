@@ -10,10 +10,14 @@ class AppConfig {
     defaultValue: 'http://localhost:8080',
   );
 
-  static const bool enableDeviceLogs = bool.fromEnvironment(
+  static const String _rawDeviceLogs = String.fromEnvironment(
     'ENABLE_DEVICE_LOGS',
-    defaultValue: true,
+    defaultValue: 'false',
   );
+
+  static bool get enableDeviceLogs =>
+      _rawDeviceLogs.toLowerCase().trim() == 'true' ||
+      _rawDeviceLogs.trim() == '1';
 
   static String _host = _defaultHost;
 

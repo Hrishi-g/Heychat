@@ -31,6 +31,7 @@ jobs:
       - name: Restore .env file from Secrets
         run: |
           echo "BACKEND_URL=${{ secrets.BACKEND_URL }}" > .env
+          echo "ENABLE_DEVICE_LOGS=${{ secrets.ENABLE_DEVICE_LOGS || 'false' }}" >> .env
 
       - name: Install dependencies
         run: flutter pub get
