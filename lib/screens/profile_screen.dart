@@ -820,46 +820,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
-                  child: ListTile(
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: AppConfig.brandLimeLight,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.chat_bubble_outline_rounded,
-                        color: AppConfig.brandDark,
-                        size: 20,
-                      ),
-                    ),
-                    title: const Text(
-                      'Message Yourself (Notes)',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color: AppConfig.brandDark,
-                      ),
-                    ),
-                    subtitle: const Text(
-                      'Send notes, links, and media to your own number',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ChatDetailScreen(
-                            contactMblNo: displayMblNo,
-                            contactName: 'You (Notes)',
-                          ),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      leading: Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: AppConfig.brandLimeLight,
+                          shape: BoxShape.circle,
                         ),
-                      );
-                    },
+                        child: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          color: AppConfig.brandDark,
+                          size: 20,
+                        ),
+                      ),
+                      title: const Text(
+                        'Message Yourself (Notes)',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                          color: AppConfig.brandDark,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Send notes, links, and media to your own number',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatDetailScreen(
+                              contactMblNo: displayMblNo,
+                              contactName: 'You (Notes)',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),

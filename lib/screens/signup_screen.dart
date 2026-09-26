@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../services/auth_service.dart';
+import '../services/log_service.dart';
 import 'login_screen.dart';
 import 'logs_screen.dart';
 import 'otp_verification_screen.dart';
@@ -281,16 +282,17 @@ class _SignupScreenState extends State<SignupScreen> {
               showServerSettingsDialog(context, onSaved: () => setState(() {}));
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.bug_report_outlined),
-            tooltip: 'App Device Logs',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LogsScreen()),
-              );
-            },
-          ),
+          if (LogService.isEnabled)
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: 'App Device Logs',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LogsScreen()),
+                );
+              },
+            ),
         ],
       ),
       bottomNavigationBar: const SafeArea(

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../config/app_config.dart';
 
 class LogEntry {
   final DateTime timestamp;
@@ -23,13 +24,21 @@ class LogEntry {
 }
 
 class LogService {
+  /// Toggle controlled compile-time via ENABLE_DEVICE_LOGS in .env
+  static bool get isEnabled => AppConfig.enableDeviceLogs;
+
   static final List<LogEntry> _logs = [];
   static final ValueNotifier<List<LogEntry>> logsNotifier = ValueNotifier([]);
   static const int _maxLogs = 500;
 
-  static List<LogEntry> get logs => List.unmodifiable(_logs);
+  /// NO READ when disabled in production
+  static List<LogEntry> get logs =>
+      isEnabled ? List.unmodifiable(_logs) : const [];
 
+  /// NO WRITE when disabled in production
   static void addLog(String level, String message, [String? details]) {
+    if (!isEnabled) return;
+
     final entry = LogEntry(
       timestamp: DateTime.now(),
       level: level.toUpperCase(),
@@ -43,21 +52,15 @@ class LogService {
     }
 
     logsNotifier.value = List.unmodifiable(_logs);
-
-    // Terminal printing silenced to keep console clean (accessible in-app via Logs screen)
-    // if (kDebugMode) {
-    //   print('[${entry.level}] ${entry.formattedTime} - ${entry.message}');
-    //   if (details != null && details.isNotEmpty) {
-    //     print('  Details: $details');
-    //   }
-    // }
   }
 
   static void info(String message, [String? details]) {
+    if (!isEnabled) return;
     addLog('INFO', message, details);
   }
 
   static void error(String message, [dynamic error, dynamic stackTrace]) {
+    if (!isEnabled) return;
     final details = error != null
         ? 'Error: $error${stackTrace != null ? '\nStack: $stackTrace' : ''}'
         : null;
@@ -65,10 +68,12 @@ class LogService {
   }
 
   static void http(String message, [String? details]) {
+    if (!isEnabled) return;
     addLog('HTTP', message, details);
   }
 
   static void ws(String message, [String? details]) {
+    if (!isEnabled) return;
     addLog('WS', message, details);
   }
 
@@ -77,7 +82,9 @@ class LogService {
     logsNotifier.value = [];
   }
 
+  /// NO READ when disabled in production
   static String exportText() {
+    if (!isEnabled) return '';
     return _logs
         .map((e) =>
             '[${e.formattedTime}] [${e.level}] ${e.message}${e.details != null ? '\n  ${e.details}' : ''}')

@@ -251,6 +251,32 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
+  Widget _buildForwardedTag() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: const [
+          Icon(
+            Icons.shortcut_rounded,
+            size: 13,
+            color: Colors.black54,
+          ),
+          SizedBox(width: 3),
+          Text(
+            'Forwarded',
+            style: TextStyle(
+              fontSize: 11,
+              fontStyle: FontStyle.italic,
+              fontWeight: FontWeight.w600,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final timeStr = DateFormat('hh:mm a').format(
@@ -362,6 +388,7 @@ class ChatBubble extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (message.isForwarded && !isDeleted) _buildForwardedTag(),
                       if (hasReply) _buildReplyQuote(context),
                       if (isImage)
                         ChatImageWidget(

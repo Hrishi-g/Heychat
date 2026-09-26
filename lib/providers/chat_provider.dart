@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:my_first_app/services/log_service.dart';
 import '../models/chat_home_model.dart';
 import '../models/message_model.dart';
 import '../services/auth_service.dart';
 import '../services/avatar_cache_service.dart';
 import '../services/db_service.dart';
+import '../services/media_storage_service.dart';
 import '../services/websocket_service.dart';
 
 class ChatProvider extends ChangeNotifier {
@@ -797,6 +799,10 @@ class ChatProvider extends ChangeNotifier {
         throw Exception('R2 upload failed: ${uploadResult['statusCode']}');
       }
 
+      // Save raw image bytes locally to Pictures/HeyChat folder so sender can view in gallery
+      final localSavedPath = await MediaStorageService.instance
+          .saveImageBytes(imageBytes, fileExtension);
+
       // Cache the public URL with the image bytes locally
       await AvatarCacheService.instance
           .saveBytesToCache(filePublicUrl, imageBytes);
@@ -816,6 +822,8 @@ class ChatProvider extends ChangeNotifier {
         replyToMsgId: replyToMsgId,
         replyToSender: replyToSender,
         replyToText: replyToText,
+        localImageUrl: localSavedPath,
+        cloudImageUrl: filePublicUrl,
       );
 
       // Update in-memory list
@@ -1071,6 +1079,106 @@ class ChatProvider extends ChangeNotifier {
       }
     }
 
+    notifyListeners();
+  }
+
+  /// Download image from Cloudflare R2 and save to device Pictures/HeyChat folder
+  Future<bool> downloadAndSaveImageMessage(MessageModel message) async {
+    final targetUrl = message.cloudImageUrl ?? message.message;
+    if (targetUrl.trim().isEmpty) return false;
+
+    try {
+      final resp = await http.get(Uri.parse(targetUrl.trim()));
+      if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
+        final ext = targetUrl.toLowerCase().contains('.png') ? 'png' : 'jpg';
+        final savedPath = await MediaStorageService.instance
+            .saveImageBytes(resp.bodyBytes, ext);
+
+        if (savedPath != null && savedPath.isNotEmpty) {
+          final updatedMsg = message.copyWith(localImageUrl: savedPath);
+
+          // Update SQLite DB
+          final msgId = message.msgId ??
+              '${message.sender}_${message.receiver}_${message.timeStamp}';
+          await _dbService.updateMessageLocalPath(msgId, savedPath);
+
+          // Update in-memory chat conversation list
+          final otherUser = isSameUser(message.sender, activeChatUser ?? '')
+              ? message.receiver
+              : message.sender;
+          final list = _conversationMap[otherUser];
+          if (list != null) {
+            final idx = list.indexWhere((m) =>
+                m.msgId == message.msgId ||
+                (m.timeStamp == message.timeStamp &&
+                    isSameUser(m.sender, message.sender)));
+            if (idx != -1) {
+              list[idx] = updatedMsg;
+              notifyListeners();
+            }
+          }
+          return true;
+        }
+      }
+    } catch (e) {
+      LogService.error('ChatProvider: downloadAndSaveImageMessage error', e);
+    }
+    return false;
+  }
+
+  /// Forward selected messages to multiple recipient contacts
+  Future<void> forwardMessages({
+    required List<MessageModel> messages,
+    required List<String> recipientMblNos,
+    required String senderMblNo,
+  }) async {
+    for (final recipient in recipientMblNos) {
+      for (final msg in messages) {
+        final uniqueTs = _nextUniqueTimestamp();
+        final clientMsgId = '${senderMblNo}_${recipient}_$uniqueTs';
+        final isOnline = isUserOnline(recipient);
+        final finalStatus = isOnline ? 'SENT' : 'PENDING';
+
+        final fwdMsg = MessageModel(
+          msgId: clientMsgId,
+          type: msg.type,
+          sender: senderMblNo,
+          receiver: recipient,
+          message: msg.message,
+          status: finalStatus,
+          timeStamp: uniqueTs,
+          isForwarded: true,
+          localImageUrl: msg.localImageUrl,
+          cloudImageUrl:
+              msg.cloudImageUrl ?? (msg.type == 'IMAGE' ? msg.message : null),
+        );
+
+        // Update in-memory conversation list if initialized
+        List<MessageModel>? list = _getConversationList(recipient);
+        if (list != null) {
+          list.add(fwdMsg);
+          list.sort((a, b) => a.timeStamp.compareTo(b.timeStamp));
+        }
+
+        // Send via WebSocket to recipient
+        _wsService.sendMessage(fwdMsg);
+
+        // Save locally to SQLite DB
+        await _dbService.saveMessage(fwdMsg);
+
+        // Update Home Chat preview item
+        final homeChat = ChatHomeModel(
+          chatUser: recipient,
+          lastMsg: fwdMsg.type == 'IMAGE' ? '📷 Photo' : fwdMsg.message,
+          status: finalStatus,
+          lastMessageTime:
+              DateTime.fromMillisecondsSinceEpoch(uniqueTs).toIso8601String(),
+        );
+        await _dbService.saveChatHome(homeChat);
+      }
+    }
+
+    _homeChats = await _dbService.getAllHomeChats();
     notifyListeners();
   }
 

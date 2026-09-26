@@ -50,4 +50,31 @@ class Validators {
     }
     return null;
   }
+
+  /// Formats ISO timestamp string or DateTime for chat display
+  static String formatTimestamp(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return '';
+    try {
+      final date = DateTime.parse(isoString).toLocal();
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inDays == 0 && date.day == now.day) {
+        final hour =
+            date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+        final minute = date.minute.toString().padLeft(2, '0');
+        final ampm = date.hour >= 12 ? 'PM' : 'AM';
+        return '$hour:$minute $ampm';
+      } else if (difference.inDays < 2 && now.day - date.day == 1) {
+        return 'Yesterday';
+      } else if (difference.inDays < 7) {
+        const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        return weekdays[date.weekday - 1];
+      } else {
+        return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year.toString().substring(2)}';
+      }
+    } catch (_) {
+      return '';
+    }
+  }
 }

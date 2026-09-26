@@ -2,7 +2,8 @@
 /// Represents a single text or action message in a conversation.
 class MessageModel {
   final String? msgId;
-  final String type; // CHAT, READ, EDIT, DELETE_FOR_ME, DELETE_EVERYONE, PING
+  final String
+      type; // CHAT, IMAGE, READ, EDIT, DELETE_FOR_ME, DELETE_EVERYONE, PING
   final String sender;
   final String receiver;
   final String message;
@@ -10,9 +11,12 @@ class MessageModel {
   final int timeStamp;
   final bool isEdited;
   final bool isDeletedForEveryone;
+  final bool isForwarded;
   final String? replyToMsgId;
   final String? replyToSender;
   final String? replyToText;
+  final String? localImageUrl;
+  final String? cloudImageUrl;
 
   MessageModel({
     this.msgId,
@@ -24,9 +28,12 @@ class MessageModel {
     required this.timeStamp,
     this.isEdited = false,
     this.isDeletedForEveryone = false,
+    this.isForwarded = false,
     this.replyToMsgId,
     this.replyToSender,
     this.replyToText,
+    this.localImageUrl,
+    this.cloudImageUrl,
   });
 
   MessageModel copyWith({
@@ -39,9 +46,12 @@ class MessageModel {
     int? timeStamp,
     bool? isEdited,
     bool? isDeletedForEveryone,
+    bool? isForwarded,
     String? replyToMsgId,
     String? replyToSender,
     String? replyToText,
+    String? localImageUrl,
+    String? cloudImageUrl,
   }) {
     return MessageModel(
       msgId: msgId ?? this.msgId,
@@ -53,9 +63,12 @@ class MessageModel {
       timeStamp: timeStamp ?? this.timeStamp,
       isEdited: isEdited ?? this.isEdited,
       isDeletedForEveryone: isDeletedForEveryone ?? this.isDeletedForEveryone,
+      isForwarded: isForwarded ?? this.isForwarded,
       replyToMsgId: replyToMsgId ?? this.replyToMsgId,
       replyToSender: replyToSender ?? this.replyToSender,
       replyToText: replyToText ?? this.replyToText,
+      localImageUrl: localImageUrl ?? this.localImageUrl,
+      cloudImageUrl: cloudImageUrl ?? this.cloudImageUrl,
     );
   }
 
@@ -75,9 +88,13 @@ class MessageModel {
               : DateTime.now().millisecondsSinceEpoch),
       isEdited: json['isEdited'] == true,
       isDeletedForEveryone: json['isDeletedForEveryone'] == true,
+      isForwarded: json['isForwarded'] == true,
       replyToMsgId: json['replyToMsgId']?.toString(),
       replyToSender: json['replyToSender']?.toString(),
       replyToText: json['replyToText']?.toString(),
+      localImageUrl: json['localImageUrl']?.toString(),
+      cloudImageUrl:
+          json['cloudImageUrl']?.toString() ?? json['message']?.toString(),
     );
   }
 
@@ -92,9 +109,12 @@ class MessageModel {
       'timeStamp': timeStamp,
       'isEdited': isEdited,
       'isDeletedForEveryone': isDeletedForEveryone,
+      'isForwarded': isForwarded,
       'replyToMsgId': replyToMsgId,
       'replyToSender': replyToSender,
       'replyToText': replyToText,
+      'localImageUrl': localImageUrl,
+      'cloudImageUrl': cloudImageUrl ?? message,
     };
   }
 
@@ -109,9 +129,12 @@ class MessageModel {
       'timeStamp': timeStamp,
       'isEdited': isEdited ? 1 : 0,
       'isDeletedForEveryone': isDeletedForEveryone ? 1 : 0,
+      'isForwarded': isForwarded ? 1 : 0,
       'replyToMsgId': replyToMsgId,
       'replyToSender': replyToSender,
       'replyToText': replyToText,
+      'localImageUrl': localImageUrl,
+      'cloudImageUrl': cloudImageUrl ?? message,
     };
   }
 
@@ -126,9 +149,13 @@ class MessageModel {
       timeStamp: map['timeStamp'],
       isEdited: map['isEdited'] == 1,
       isDeletedForEveryone: map['isDeletedForEveryone'] == 1,
+      isForwarded: map['isForwarded'] == 1,
       replyToMsgId: map['replyToMsgId']?.toString(),
       replyToSender: map['replyToSender']?.toString(),
       replyToText: map['replyToText']?.toString(),
+      localImageUrl: map['localImageUrl']?.toString(),
+      cloudImageUrl:
+          map['cloudImageUrl']?.toString() ?? map['message']?.toString(),
     );
   }
 }

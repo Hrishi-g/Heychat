@@ -5,7 +5,8 @@ import '../config/app_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../services/auth_service.dart';
-import '../utils/dummy_data.dart';
+import '../services/log_service.dart';
+import '../utils/validators.dart';
 import 'chat_detail_screen.dart';
 import 'full_screen_image_screen.dart';
 import 'login_screen.dart';
@@ -1068,34 +1069,36 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                const PopupMenuDivider(height: 8),
-                PopupMenuItem(
-                  value: 'logs',
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.blueGrey.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                if (LogService.isEnabled) ...[
+                  const PopupMenuDivider(height: 8),
+                  PopupMenuItem(
+                    value: 'logs',
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.blueGrey.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.terminal_rounded,
+                              size: 16, color: AppConfig.brandDark),
                         ),
-                        child: const Icon(Icons.terminal_rounded,
-                            size: 16, color: AppConfig.brandDark),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'App Device Logs',
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w500,
-                          color: AppConfig.brandDark,
+                        const SizedBox(width: 12),
+                        const Text(
+                          'App Device Logs',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                            color: AppConfig.brandDark,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
                 PopupMenuItem(
                   value: 'logout',
                   padding:
@@ -1396,7 +1399,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              DummyData.formatTimestamp(chat.lastMessageTime),
+                              Validators.formatTimestamp(chat.lastMessageTime),
                               style: TextStyle(
                                 fontSize: 11.5,
                                 color: isUnread
@@ -1467,9 +1470,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
             // 2. STATUS TAB
-            const Center(child: Text('My Status & Updates')),
+            const Center(
+              child: Column(
+                mainAxisSize:
+                    MainAxisSize.min, // Centers the content vertically
+                children: [
+                  Text('My Status & Updates'),
+                  Text('Coming Soon'), // Note: fixed the spelling of 'Coming'
+                ],
+              ),
+            ),
             // 3. CALLS TAB
-            const Center(child: Text('Recent Calls')),
+            const Center(
+              child: Column(
+                mainAxisSize:
+                    MainAxisSize.min, // Centers the content vertically
+                children: [
+                  Text('Recent Calls'),
+                  Text('Coming Soon'), // Note: fixed the spelling of 'Coming'
+                ],
+              ),
+            ),
           ],
         ),
       ),

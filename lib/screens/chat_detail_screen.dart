@@ -10,6 +10,7 @@ import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../widgets/cached_avatar.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/forward_message_sheet.dart';
 import '../widgets/glitter_border_wrapper.dart';
 import '../widgets/reply_photo_thumbnail.dart';
 import '../widgets/swipe_to_reply_wrapper.dart';
@@ -543,82 +544,108 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
             ],
           ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(24),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                if (!msg.isDeletedForEveryone) ...[
-                  ListTile(
-                    leading: const Icon(Icons.reply_rounded,
-                        color: AppConfig.brandDark),
-                    title: const Text('Reply',
-                        style: TextStyle(fontWeight: FontWeight.w500)),
-                    onTap: () {
-                      _isActionActive = false;
-                      _focusNode.canRequestFocus = true;
-                      Navigator.pop(ctx);
-                      _startReply(msg);
-                    },
-                  ),
-                  if (!isImage)
+                  const SizedBox(height: 12),
+                  if (!msg.isDeletedForEveryone) ...[
                     ListTile(
-                      leading: const Icon(Icons.content_copy_rounded,
+                      leading: const Icon(Icons.reply_rounded,
                           color: AppConfig.brandDark),
-                      title: const Text('Copy',
+                      title: const Text('Reply',
                           style: TextStyle(fontWeight: FontWeight.w500)),
                       onTap: () {
                         _isActionActive = false;
                         _focusNode.canRequestFocus = true;
                         Navigator.pop(ctx);
-                        Clipboard.setData(ClipboardData(text: msg.message));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Copied to clipboard'),
-                            duration: Duration(milliseconds: 1200),
-                          ),
-                        );
+                        _startReply(msg);
                       },
                     ),
-                  ListTile(
-                    leading: const Icon(Icons.check_circle_outline_rounded,
-                        color: AppConfig.brandDark),
-                    title: const Text('Select',
-                        style: TextStyle(fontWeight: FontWeight.w500)),
-                    onTap: () {
-                      _isActionActive = false;
-                      _focusNode.canRequestFocus = true;
-                      Navigator.pop(ctx);
-                      _toggleMessageSelection(msg);
-                    },
-                  ),
-                ],
-                if (isMe && !msg.isDeletedForEveryone) ...[
-                  if (!isImage)
+                    if (!isImage)
+                      ListTile(
+                        leading: const Icon(Icons.content_copy_rounded,
+                            color: AppConfig.brandDark),
+                        title: const Text('Copy',
+                            style: TextStyle(fontWeight: FontWeight.w500)),
+                        onTap: () {
+                          _isActionActive = false;
+                          _focusNode.canRequestFocus = true;
+                          Navigator.pop(ctx);
+                          Clipboard.setData(ClipboardData(text: msg.message));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Copied to clipboard'),
+                              duration: Duration(milliseconds: 1200),
+                            ),
+                          );
+                        },
+                      ),
                     ListTile(
-                      leading: const Icon(Icons.edit_rounded,
+                      leading: const Icon(Icons.check_circle_outline_rounded,
                           color: AppConfig.brandDark),
-                      title: const Text('Edit message',
+                      title: const Text('Select',
                           style: TextStyle(fontWeight: FontWeight.w500)),
                       onTap: () {
                         _isActionActive = false;
+                        _focusNode.canRequestFocus = true;
                         Navigator.pop(ctx);
-                        _startEditing(msg);
+                        _toggleMessageSelection(msg);
                       },
                     ),
+                  ],
+                  if (isMe && !msg.isDeletedForEveryone) ...[
+                    if (!isImage)
+                      ListTile(
+                        leading: const Icon(Icons.edit_rounded,
+                            color: AppConfig.brandDark),
+                        title: const Text('Edit message',
+                            style: TextStyle(fontWeight: FontWeight.w500)),
+                        onTap: () {
+                          _isActionActive = false;
+                          Navigator.pop(ctx);
+                          _startEditing(msg);
+                        },
+                      ),
+                    ListTile(
+                      leading: const Icon(Icons.delete_forever_rounded,
+                          color: Colors.redAccent),
+                      title: const Text('Delete for everyone',
+                          style: TextStyle(
+                              color: Colors.redAccent,
+                              fontWeight: FontWeight.w500)),
+                      onTap: () async {
+                        _focusNode.canRequestFocus = false;
+                        _focusNode.unfocus();
+                        FocusScope.of(context).unfocus();
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+                        Navigator.pop(ctx);
+                        await Future.delayed(const Duration(milliseconds: 100));
+                        if (mounted) {
+                          await _confirmDelete(msg, forEveryone: true);
+                        }
+                      },
+                    ),
+                  ],
                   ListTile(
-                    leading: const Icon(Icons.delete_forever_rounded,
+                    leading: const Icon(Icons.delete_outline_rounded,
                         color: Colors.redAccent),
-                    title: const Text('Delete for everyone',
+                    title: const Text('Delete for me',
                         style: TextStyle(
                             color: Colors.redAccent,
                             fontWeight: FontWeight.w500)),
@@ -632,34 +659,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       Navigator.pop(ctx);
                       await Future.delayed(const Duration(milliseconds: 100));
                       if (mounted) {
-                        await _confirmDelete(msg, forEveryone: true);
+                        await _confirmDelete(msg, forEveryone: false);
                       }
                     },
                   ),
+                  const SizedBox(height: 8),
                 ],
-                ListTile(
-                  leading: const Icon(Icons.delete_outline_rounded,
-                      color: Colors.redAccent),
-                  title: const Text('Delete for me',
-                      style: TextStyle(
-                          color: Colors.redAccent,
-                          fontWeight: FontWeight.w500)),
-                  onTap: () async {
-                    _focusNode.canRequestFocus = false;
-                    _focusNode.unfocus();
-                    FocusScope.of(context).unfocus();
-                    FocusManager.instance.primaryFocus?.unfocus();
-                    SystemChannels.textInput.invokeMethod('TextInput.hide');
-
-                    Navigator.pop(ctx);
-                    await Future.delayed(const Duration(milliseconds: 100));
-                    if (mounted) {
-                      await _confirmDelete(msg, forEveryone: false);
-                    }
-                  },
-                ),
-                const SizedBox(height: 8),
-              ],
+              ),
             ),
           ),
         );
@@ -750,6 +756,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _focusNode.canRequestFocus = true;
       _focusNode.requestFocus();
     }
+  }
+
+  Future<void> _openForwardSheet() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
+    final messages = chatProvider.getMessagesFor(
+      widget.contactMblNo,
+      currentUser: authProvider.currentMblNo,
+      contactName: widget.contactName,
+    );
+
+    final selectedMsgs = messages.where((m) => _isMsgSelected(m)).toList();
+    if (selectedMsgs.isEmpty || authProvider.currentMblNo == null) return;
+
+    _isActionActive = true;
+    FocusScope.of(context).unfocus();
+
+    final forwarded = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => ForwardMessageSheet(
+        selectedMessages: selectedMsgs,
+        currentMblNo: authProvider.currentMblNo!,
+      ),
+    );
+
+    if (forwarded == true && mounted) {
+      _clearSelection();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message(s) forwarded successfully'),
+          backgroundColor: Color(0xFF25D366),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+    _isActionActive = false;
   }
 
   @override
@@ -911,12 +956,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 ],
               ),
         actions: [
-          if (_selectedMsgKeys.isNotEmpty)
+          if (_selectedMsgKeys.isNotEmpty) ...[
+            IconButton(
+              icon: const Icon(Icons.shortcut_rounded,
+                  color: AppConfig.brandDark, size: 24),
+              onPressed: _openForwardSheet,
+              tooltip: 'Forward',
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline_rounded,
                   color: Colors.redAccent, size: 24),
               onPressed: _confirmBatchDelete,
+              tooltip: 'Delete',
             ),
+          ],
         ],
       ),
       body: Stack(

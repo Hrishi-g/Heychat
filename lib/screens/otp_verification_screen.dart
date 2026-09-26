@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../config/app_config.dart';
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
+import '../services/log_service.dart';
 import '../widgets/server_settings_dialog.dart';
 import 'login_screen.dart';
 import 'logs_screen.dart';
@@ -425,16 +426,17 @@ class OtpVerificationScreen extends StatelessWidget {
               showServerSettingsDialog(context, onSaved: () {});
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.bug_report_outlined),
-            tooltip: 'App Device Logs',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const LogsScreen()),
-              );
-            },
-          ),
+          if (LogService.isEnabled)
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: 'App Device Logs',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LogsScreen()),
+                );
+              },
+            ),
         ],
       ),
       bottomNavigationBar: const SafeArea(

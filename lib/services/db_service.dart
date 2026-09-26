@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../models/message_model.dart';
 import '../models/chat_home_model.dart';
+import '../models/user_model.dart';
 import 'log_service.dart';
 import 'secure_storage_service.dart';
 
@@ -62,7 +63,7 @@ class DatabaseService {
         final encryptedDb = await openDatabase(
           encryptedPath,
           password: dbPassword,
-          version: 2,
+          version: 5,
           onCreate: _createDB,
         );
 
@@ -94,7 +95,7 @@ class DatabaseService {
       final db = await openDatabase(
         encryptedPath,
         password: dbPassword,
-        version: 2,
+        version: 5,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
       );
@@ -115,7 +116,7 @@ class DatabaseService {
       final freshDb = await openDatabase(
         encryptedPath,
         password: dbPassword,
-        version: 2,
+        version: 5,
         onCreate: _createDB,
         onUpgrade: _upgradeDB,
       );
@@ -137,9 +138,12 @@ class DatabaseService {
         timeStamp INTEGER NOT NULL,
         isEdited INTEGER NOT NULL DEFAULT 0,
         isDeletedForEveryone INTEGER NOT NULL DEFAULT 0,
+        isForwarded INTEGER NOT NULL DEFAULT 0,
         replyToMsgId TEXT,
         replyToSender TEXT,
-        replyToText TEXT
+        replyToText TEXT,
+        localImageUrl TEXT,
+        cloudImageUrl TEXT
       )
     ''');
 
@@ -151,6 +155,18 @@ class DatabaseService {
         lastMsg TEXT NOT NULL,
         status TEXT NOT NULL,
         lastMessageTime TEXT,
+        imgUrl TEXT
+      )
+    ''');
+
+    // Table for caching user profile locally
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS user_profile (
+        mblNo TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        gender TEXT,
+        dob TEXT,
         imgUrl TEXT
       )
     ''');
@@ -166,6 +182,34 @@ class DatabaseService {
       } catch (_) {}
       try {
         await db.execute('ALTER TABLE messages ADD COLUMN replyToText TEXT');
+      } catch (_) {}
+    }
+    if (oldVersion < 3) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS user_profile (
+            mblNo TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT,
+            gender TEXT,
+            dob TEXT,
+            imgUrl TEXT
+          )
+        ''');
+      } catch (_) {}
+    }
+    if (oldVersion < 4) {
+      try {
+        await db.execute('ALTER TABLE messages ADD COLUMN localImageUrl TEXT');
+      } catch (_) {}
+      try {
+        await db.execute('ALTER TABLE messages ADD COLUMN cloudImageUrl TEXT');
+      } catch (_) {}
+    }
+    if (oldVersion < 5) {
+      try {
+        await db.execute(
+            'ALTER TABLE messages ADD COLUMN isForwarded INTEGER NOT NULL DEFAULT 0');
       } catch (_) {}
     }
   }
@@ -356,13 +400,66 @@ class DatabaseService {
     }
   }
 
-  // Clear cached messages and chats on user logout
+  // Insert or replace cached user profile in local SQLite
+  Future<void> saveUserProfile(UserModel user) async {
+    try {
+      final db = await instance.database;
+      await db.insert(
+        'user_profile',
+        user.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+      LogService.info(
+          'DatabaseService: Saved user profile for ${user.mblNo} to local SQLite');
+    } catch (e) {
+      LogService.error('DatabaseService: saveUserProfile error', e);
+    }
+  }
+
+  // Get cached user profile from local SQLite
+  Future<UserModel?> getUserProfile(String mblNo) async {
+    try {
+      final db = await instance.database;
+      final maps = await db.query(
+        'user_profile',
+        where: 'mblNo = ?',
+        whereArgs: [mblNo],
+      );
+      if (maps.isNotEmpty) {
+        return UserModel.fromJson(maps.first);
+      }
+    } catch (e) {
+      LogService.error('DatabaseService: getUserProfile error', e);
+    }
+    return null;
+  }
+
+  // Update localImageUrl path for a message in local SQLite
+  Future<void> updateMessageLocalPath(String msgId, String localPath) async {
+    try {
+      final db = await instance.database;
+      await db.update(
+        'messages',
+        {'localImageUrl': localPath},
+        where: 'msgId = ?',
+        whereArgs: [msgId],
+      );
+      LogService.info(
+          'DatabaseService: Updated localImageUrl for $msgId to $localPath');
+    } catch (e) {
+      LogService.error('DatabaseService: updateMessageLocalPath error', e);
+    }
+  }
+
+  // Clear cached messages, chats, and profile on user logout
   Future<void> clearDatabase() async {
     try {
       final db = await instance.database;
       await db.delete('messages');
       await db.delete('chats');
-      LogService.info('DatabaseService: Cleared messages and chats on logout');
+      await db.delete('user_profile');
+      LogService.info(
+          'DatabaseService: Cleared messages, chats, and user_profile on logout');
     } catch (e) {
       LogService.error(
           'DatabaseService: Failed to clear database tables on logout', e);

@@ -36,11 +36,15 @@ class GoogleDriveService {
 
   Future<GoogleSignInAccount?> signIn() async {
     try {
-      // Clear cached session state before requesting fresh Google Play Services token
-      try {
-        await _googleSignIn.signOut();
-      } catch (_) {}
+      // 1. Try silent sign-in first (no UI popups if already authorized)
+      _currentUser = await _googleSignIn.signInSilently();
+      if (_currentUser != null) {
+        LogService.info(
+            'GoogleDriveService: Silently signed in as ${_currentUser?.email}');
+        return _currentUser;
+      }
 
+      // 2. If silent sign-in returns null (first time), prompt account picker
       _currentUser = await _googleSignIn.signIn();
       if (_currentUser != null) {
         LogService.info(

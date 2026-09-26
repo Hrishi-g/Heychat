@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import '../models/user_model.dart';
+import 'db_service.dart';
 import 'log_service.dart';
 import 'secure_storage_service.dart';
 
@@ -236,8 +237,22 @@ class AuthService {
     return null;
   }
 
-  // GET /user/profile -> Retrieves user profile data from backend
-  Future<UserModel?> getProfile() async {
+  // GET /user/profile -> Retrieves user profile data from local encrypted SQLite cache (0 BE hits), or fetches from backend
+  Future<UserModel?> getProfile({bool forceRefresh = false}) async {
+    final currentMbl = await getUserMblNo();
+
+    // 1. Check local encrypted SQLite database cache first (0 BE hits)
+    if (!forceRefresh && currentMbl != null && currentMbl.isNotEmpty) {
+      final cachedProfile =
+          await DatabaseService.instance.getUserProfile(currentMbl);
+      if (cachedProfile != null) {
+        LogService.info(
+            'AuthService: Profile retrieved from local SQLite cache (0 BE hits)');
+        return cachedProfile;
+      }
+    }
+
+    // 2. Fetch from backend API if not cached locally
     final url = Uri.parse('${AppConfig.baseUrl}/user/profile');
     LogService.http('GET /user/profile');
     try {
@@ -255,7 +270,10 @@ class AuthService {
         if (body.isNotEmpty && body != 'null') {
           final decoded = jsonDecode(body);
           if (decoded is Map<String, dynamic>) {
-            return UserModel.fromJson(decoded);
+            final user = UserModel.fromJson(decoded);
+            // Save fresh profile to local encrypted SQLite cache
+            await DatabaseService.instance.saveUserProfile(user);
+            return user;
           }
         }
       }
@@ -265,7 +283,7 @@ class AuthService {
     return null;
   }
 
-  // POST /user/profile/update -> Updates user profile data on backend
+  // POST /user/profile/update -> Updates user profile data on backend & saves to local SQLite cache
   Future<UserModel?> updateProfile(UserModel updated) async {
     final url = Uri.parse('${AppConfig.baseUrl}/user/profile/update');
     LogService.http('POST /user/profile/update', jsonEncode(updated.toJson()));
@@ -285,9 +303,15 @@ class AuthService {
         if (body.isNotEmpty && body != 'null') {
           final decoded = jsonDecode(body);
           if (decoded is Map<String, dynamic>) {
-            return UserModel.fromJson(decoded);
+            final user = UserModel.fromJson(decoded);
+            // Save updated profile to local encrypted SQLite cache
+            await DatabaseService.instance.saveUserProfile(user);
+            return user;
           }
         }
+        // Save to local cache even if server response body was empty
+        await DatabaseService.instance.saveUserProfile(updated);
+        return updated;
       }
     } catch (e, st) {
       LogService.error('POST /user/profile/update Failed', e, st);

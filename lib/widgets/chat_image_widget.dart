@@ -2,14 +2,17 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../models/message_model.dart';
+import '../providers/chat_provider.dart';
 import '../screens/full_screen_image_screen.dart';
 import '../services/avatar_cache_service.dart';
+import '../services/media_storage_service.dart';
 
 /// ChatImageWidget renders a square-shaped chat image bubble with:
-/// - Immediate blurred placeholder + loading spinner during async upload
-/// - Crisp high-res image once uploaded / received
-/// - On tap opens full-screen photo viewer with pinch-to-zoom
+/// - Immediate local file rendering if available in device storage (Pictures/HeyChat)
+/// - Download overlay button if deleted from gallery or not downloaded yet
+/// - Auto-redownload from Cloudflare R2 on button tap and rewrite local path to SQLite
 class ChatImageWidget extends StatefulWidget {
   final MessageModel message;
   final bool isMe;
@@ -30,6 +33,7 @@ class ChatImageWidget extends StatefulWidget {
 
 class _ChatImageWidgetState extends State<ChatImageWidget> {
   File? _localFile;
+  bool _isDownloading = false;
 
   @override
   void initState() {
@@ -40,28 +44,65 @@ class _ChatImageWidgetState extends State<ChatImageWidget> {
   @override
   void didUpdateWidget(covariant ChatImageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.message.message != widget.message.message ||
+    if (oldWidget.message.localImageUrl != widget.message.localImageUrl ||
+        oldWidget.message.cloudImageUrl != widget.message.cloudImageUrl ||
+        oldWidget.message.message != widget.message.message ||
         oldWidget.message.status != widget.message.status) {
       _resolveImage();
     }
   }
 
   Future<void> _resolveImage() async {
-    final key = widget.message.message.trim();
-    if (key.isEmpty) return;
-
-    // 1. Check local cache
-    final local = await AvatarCacheService.instance.getCachedFile(key);
-    if (mounted && local != null) {
-      setState(() => _localFile = local);
+    final localPath = widget.message.localImageUrl;
+    if (MediaStorageService.instance.isFileAvailable(localPath)) {
+      if (mounted) {
+        setState(() {
+          _localFile = File(localPath!);
+          _isDownloading = false;
+        });
+      }
       return;
     }
 
-    // 2. If it's a remote URL, download and cache in background
-    if (key.startsWith('http')) {
-      final downloaded = await AvatarCacheService.instance.cacheUrl(key);
-      if (mounted && downloaded != null) {
-        setState(() => _localFile = downloaded);
+    // Check disk avatar cache fallback
+    final cloudUrl = widget.message.cloudImageUrl ?? widget.message.message;
+    if (cloudUrl.trim().startsWith('http')) {
+      final cached = await AvatarCacheService.instance.getCachedFile(cloudUrl);
+      if (mounted && cached != null && cached.existsSync()) {
+        setState(() {
+          _localFile = cached;
+          _isDownloading = false;
+        });
+        return;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _localFile = null;
+        _isDownloading = false;
+      });
+    }
+  }
+
+  Future<void> _handleDownload() async {
+    if (_isDownloading) return;
+    setState(() {
+      _isDownloading = true;
+    });
+
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    final success =
+        await chatProvider.downloadAndSaveImageMessage(widget.message);
+
+    if (mounted) {
+      setState(() {
+        _isDownloading = false;
+      });
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to download image from cloud')),
+        );
       }
     }
   }
@@ -162,6 +203,9 @@ class _ChatImageWidgetState extends State<ChatImageWidget> {
   Widget build(BuildContext context) {
     final isUploading = widget.message.status == 'UPLOADING';
     final isFailed = widget.message.status == 'FAILED';
+    final isLocalAvailable = _localFile != null;
+    final targetUrl = widget.message.cloudImageUrl ?? widget.message.message;
+
     final timeStr = DateFormat('hh:mm a').format(
       DateTime.fromMillisecondsSinceEpoch(widget.message.timeStamp),
     );
@@ -170,18 +214,20 @@ class _ChatImageWidgetState extends State<ChatImageWidget> {
 
     return GestureDetector(
       onTap: () {
-        if (!isUploading && !isFailed) {
+        if (isLocalAvailable && !isUploading && !isFailed) {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => FullScreenImageScreen(
-                imageUrl: widget.message.message,
+                imageUrl: targetUrl,
                 userName: widget.isMe ? 'You' : widget.contactName,
                 phoneNumber: widget.contactMblNo,
                 showChatButton: false,
               ),
             ),
           );
+        } else if (!isLocalAvailable && !isUploading && !isFailed) {
+          _handleDownload();
         }
       },
       child: ClipRRect(
@@ -193,16 +239,30 @@ class _ChatImageWidgetState extends State<ChatImageWidget> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // 1. Image Content (blurred if uploading, crisp when ready)
-              if (isUploading || isFailed)
+              // 1. Image Content (File if available, blurred placeholder if missing)
+              if (isLocalAvailable)
+                Image.file(
+                  _localFile!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  errorBuilder: (_, __, ___) => _buildFallback(),
+                )
+              else if (targetUrl.startsWith('http'))
                 ImageFiltered(
-                  imageFilter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-                  child: _buildRawImage(),
+                  imageFilter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                  child: Image.network(
+                    targetUrl,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    errorBuilder: (_, __, ___) => _buildFallback(),
+                  ),
                 )
               else
-                _buildRawImage(),
+                _buildFallback(),
 
-              // 2. Loading Spinner Overlay when Uploading
+              // 2. Uploading Overlay
               if (isUploading)
                 Container(
                   color: Colors.black.withValues(alpha: 0.35),
@@ -218,14 +278,72 @@ class _ChatImageWidgetState extends State<ChatImageWidget> {
                         height: 28,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.8,
-                          color: Color(0xFF6366F1),
+                          color: Color(0xFFD4F933),
                         ),
                       ),
                     ),
                   ),
                 ),
 
-              // 3. Retry Overlay when Upload Failed
+              // 3. Download Button Overlay (when image file is missing locally or deleted from gallery)
+              if (!isLocalAvailable && !isUploading && !isFailed)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  child: Center(
+                    child: _isDownloading
+                        ? Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.70),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.8,
+                                color: Color(0xFFD4F933),
+                              ),
+                            ),
+                          )
+                        : GestureDetector(
+                            onTap: _handleDownload,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.70),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(
+                                    Icons.download_for_offline_rounded,
+                                    color: Color(0xFFD4F933),
+                                    size: 22,
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'Download',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+
+              // 4. Retry Overlay when Upload Failed
               if (isFailed)
                 Container(
                   color: Colors.black.withValues(alpha: 0.45),
@@ -249,7 +367,7 @@ class _ChatImageWidgetState extends State<ChatImageWidget> {
                   ),
                 ),
 
-              // 4. Timestamp & Status Badge Overlay on Bottom Right
+              // 5. Timestamp & Status Badge Overlay on Bottom Right
               Positioned(
                 bottom: 6,
                 right: 8,
@@ -284,35 +402,6 @@ class _ChatImageWidgetState extends State<ChatImageWidget> {
         ),
       ),
     );
-  }
-
-  Widget _buildRawImage() {
-    if (_localFile != null) {
-      return Image.file(
-        _localFile!,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (_, __, ___) => _buildFallback(),
-      );
-    }
-
-    final url = widget.message.message.trim();
-    if (url.startsWith('http')) {
-      return Image.network(
-        url,
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: double.infinity,
-        errorBuilder: (_, __, ___) => _buildFallback(),
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return _buildFallback();
-        },
-      );
-    }
-
-    return _buildFallback();
   }
 
   Widget _buildFallback() {
